@@ -1,0 +1,183 @@
+// LeadFlow AI — Multi-tenant Lead-to-Revenue Engine
+// Database: SQLite for local dev, PostgreSQL for production
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+// ─── TENANT / BUSINESS ────────────────────────────────────────────
+
+model Business {
+  id                  String   @id @default(cuid())
+  name                String
+  slug                String   @unique
+  industryType        String   // coaching, gym, clinic, real_estate, etc.
+  logo                String?
+  phone               String?
+  email               String?
+  website             String?
+
+  // AI Configuration
+  aiPersona           String   @default("You are a helpful business assistant.")
+  faqDocument         String?  // Knowledge base text
+  escalationKeywords  String   @default("refund,complaint,medical,legal") // comma-separated
+  followUpSequence    String   @default("24,72,168") // hours, comma-separated
+  supportedLanguages  String   @default("en,hi") // comma-separated
+
+  // Subscription
+  subscriptionStatus  String   @default("trial") // trial, active, expired, cancelled
+  plan                String   @default("starter") // starter, growth, enterprise
+
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  // Relations
+  users               User[]
+  leads               Lead[]
+  conversations       Conversation[]
+  followUps           FollowUp[]
+  conversionEvents    ConversionEvent[]
+}
+
+// ─── USER (Business Owner / Staff) ────────────────────────────────
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  name          String
+  passwordHash  String?
+  role          String   @default("OWNER") // OWNER, STAFF
+  avatarUrl     String?
+
+  businessId    String
+  business      Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  assignedLeads Lead[]   @relation("AssignedTo")
+  messages      Message[] @relation("SentByUser")
+
+  @@index([businessId])
+}
+
+// ─── LEAD ─────────────────────────────────────────────────────────
+
+model Lead {
+  id                String   @id @default(cuid())
+  name              String
+  phone             String?
+  email             String?
+  source            String   @default("WHATSAPP") // WHATSAPP, WEB_FORM, INSTAGRAM, PHONE, WALK_IN
+  status            String   @default("NEW") // NEW, ENGAGED, QUALIFIED, CONVERTED, LOST
+  estimatedValue    Float    @default(0)
+  notes             String?
+  tags              String?  // comma-separated
+
+  businessId        String
+  business          Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  assignedToId      String?
+  assignedTo        User?    @relation("AssignedTo", fields: [assignedToId], references: [id])
+
+  lastInteractionAt DateTime @default(now())
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  conversations     Conversation[]
+  followUps         FollowUp[]
+  conversionEvents  ConversionEvent[]
+
+  @@index([businessId, status])
+  @@index([businessId, createdAt])
+  @@index([businessId, source])
+}
+
+// ─── CONVERSATION ─────────────────────────────────────────────────
+
+model Conversation {
+  id         String   @id @default(cuid())
+  channel    String   @default("WHATSAPP") // WHATSAPP, WEB, INSTAGRAM, SMS
+
+  leadId     String
+  lead       Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  messages   Message[]
+
+  @@index([leadId])
+  @@index([businessId])
+}
+
+// ─── MESSAGE ──────────────────────────────────────────────────────
+
+model Message {
+  id                String   @id @default(cuid())
+  direction         String   // INBOUND, OUTBOUND
+  senderType        String   // LEAD, AI, HUMAN
+  content           String
+  messageType       String   @default("TEXT") // TEXT, IMAGE, TEMPLATE, INTERACTIVE
+  whatsappMessageId String?  // External message ID from WhatsApp
+
+  conversationId    String
+  conversation      Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  sentByUserId      String?
+  sentByUser        User?    @relation("SentByUser", fields: [sentByUserId], references: [id])
+
+  sentAt            DateTime @default(now())
+
+  @@index([conversationId])
+}
+
+// ─── FOLLOW-UP ────────────────────────────────────────────────────
+
+model FollowUp {
+  id              String   @id @default(cuid())
+  scheduledAt     DateTime
+  sentAt          DateTime?
+  templateKey     String?
+  messageContent  String
+  status          String   @default("PENDING") // PENDING, SENT, FAILED, CANCELLED
+  attemptCount    Int      @default(0)
+
+  leadId          String
+  lead            Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  businessId      String
+  business        Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  createdAt       DateTime @default(now())
+
+  @@index([businessId, status])
+  @@index([scheduledAt])
+}
+
+// ─── CONVERSION EVENT ─────────────────────────────────────────────
+
+model ConversionEvent {
+  id            String   @id @default(cuid())
+  eventType     String   // PAYMENT, ENROLLMENT, BOOKING, CUSTOM
+  revenueAmount Float
+  description   String?
+
+  leadId        String
+  lead          Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  businessId    String
+  business      Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  convertedAt   DateTime @default(now())
+
+  @@index([businessId, convertedAt])
+}
