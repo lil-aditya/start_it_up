@@ -1,9 +1,4 @@
-import { clsx, type ClassValue } from "clsx";
-import { twMerge } from "tailwind-merge";
-
-export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
-}
+export { cn } from "cn"
 
 /**
  * Format currency in Indian Rupees
@@ -83,6 +78,17 @@ export function getSourceColor(source: string): string {
     INSTAGRAM: "text-pink-400",
     PHONE: "text-amber-400",
     WALK_IN: "text-purple-400",
+    EMAIL: "text-cyan-400",
   };
   return colors[source] || "text-gray-400";
+}
+
+/**
+ * Compact number formatting (e.g., 1.2L, 45K)
+ */
+export function compactNumber(num: number): string {
+  if (num >= 10000000) return `${(num / 10000000).toFixed(1)}Cr`;
+  if (num >= 100000) return `${(num / 100000).toFixed(1)}L`;
+  if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
+  return num.toString();
 }
