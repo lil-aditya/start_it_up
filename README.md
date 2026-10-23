@@ -1,5 +1,25 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+## Database setup
+
+The app uses PostgreSQL through Prisma. Copy `.env.example` to `.env` and set
+`DATABASE_URL` to your Supabase PostgreSQL connection string. Keep the database
+password in `.env`; do not use a `NEXT_PUBLIC_` variable or commit `.env`.
+
+After setting the connection string, generate the Prisma client and apply the
+database schema:
+
+```bash
+npx prisma generate
+npx prisma db push
+```
+
+To load the sample businesses and leads, run:
+
+```bash
+npx prisma db seed
+```
+
 ## Getting Started
 
 First, run the development server:
